@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Employee Search</title>
+
+    <style>
+        body{
+            font-family: Arial, sans-serif;
+            margin:40px;
+        }
+
+        .container{
+            width:500px;
+        }
+
+        label{
+            display:block;
+            margin-top:10px;
+            font-weight:bold;
+        }
+
+        input,select{
+            width:100%;
+            padding:8px;
+        }
+
+        button{
+            margin-top:15px;
+            padding:10px 20px;
+            cursor:pointer;
+        }
+
+        .message{
+            margin-top:15px;
+            color:green;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <h2>Employee Search</h2>
+
+    <label>Search PF</label>
+    <input type="text" id="searchPF">
+
+    <button onclick="searchEmployee()">Search</button>
+
+    <hr>
+
+    <input type="hidden" id="itemId">
+
+    <label>PF</label>
+    <input type="text" id="PF">
+
+    <label>Name</label>
+    <input type="text" id="Name">
+
+    <label>Civil ID</label>
+    <input type="text" id="CivilID">
+
+    <label>Type</label>
+    <select id="Type">
+        <option value="">Select Type</option>
+        <option value="Staff">Staff</option>
+        <option value="Contractor">Contractor</option>
+        <option value="Visitor">Visitor</option>
+    </select>
+
+    <button onclick="updateEmployee()">Update</button>
+
+    <div class="message" id="msg"></div>
+
+</div>
+
+<script>
+
+const siteUrl = "https://alghanim.sharepoint.com/sites/dataset/Lists/ESDataPowerApp/AllItems.aspx";
+const listName = "ESData-PowerApp";
+
+async function searchEmployee() {
+
+    let pf = document.getElementById("searchPF").value;
+
+    if(!pf){
+        alert("Enter PF");
+        return;
+    }
+
+    const url =
+        `${siteUrl}/_api/web/lists/getbytitle('${listName}')/items?$filter=PF eq '${pf}'`;
+
+    try{
+
+        const response = await fetch(url,{
+            method:"GET",
+            headers:{
+                "Accept":"application/json;odata=verbose"
+            }
+        });
+
+        const data = await response.json();
+
+        if(data.d.results.length === 0){
+            alert("No record found");
+            return;
+        }
+
+        const item = data.d.results[0];
+
+        document.getElementById("itemId").value = item.Id;
+        document.getElementById("PF").value = item.PF || "";
+        document.getElementById("Name").value = item.Title || "";
+        document.getElementById("CivilID").value = item.CivilID || "";
+        document.getElementById("Type").value = item.Type || "";
+
+    }
+    catch(error){
+        console.error(error);
+        alert("Error loading data");
+    }
+}
+
+async function updateEmployee(){
+
+    const itemId = document.getElementById("itemId").value;
+
+    if(!itemId){
+        alert("Search employee first");
+        return;
+    }
+
+    const itemData = {
+        PF: document.getElementById("PF").value,
+        Title: document.getElementById("Name").value,
+        CivilID: document.getElementById("CivilID").value,
+        Type: document.getElementById("Type").value
+    };
+
+    try{
+
+        const digestResponse = await fetch(
+            `${siteUrl}/_api/contextinfo`,
+            {
+                method:"POST",
+                headers:{
+                    "Accept":"application/json;odata=verbose"
+                }
+            }
+        );
+
+        const digestData = await digestResponse.json();
+
+        const digestValue =
+            digestData.d.GetContextWebInformation.FormDigestValue;
+
+        await fetch(
+            `${siteUrl}/_api/web/lists/getbytitle('${listName}')/items(${itemId})`,
+            {
+                method:"POST",
+                headers:{
+                    "Accept":"application/json;odata=verbose",
+                    "Content-Type":"application/json;odata=verbose",
+                    "X-RequestDigest": digestValue,
+                    "IF-MATCH":"*",
+                    "X-HTTP-Method":"MERGE"
+                },
+                body: JSON.stringify(itemData)
+            }
+        );
+
+        document.getElementById("msg").innerHTML =
+            "Employee updated successfully";
+
+    }
+    catch(error){
+        console.error(error);
+        alert("Update failed");
+    }
+}
+
+</script>
+
+</body>
+</html>
